@@ -1077,7 +1077,7 @@ python3 stats_v4.py \
 ### D.5 그림: KL(T) overlay (const vs mean vs random)
 
 **Figure D-1. KL(T) curve overlay with best_Thr markers (abs hist range=[0,32], bins=2048)**
-![KL-curve](./assets/figures/kl-curve.png)
+![KL-curve](/assets/figures/kl-curve.png)
 
 * 동일한 1K calibration 이미지 셋에서 padding 정책(const/mean/random)만 변경한 뒤,
   대상 텐서(예: `/model.2/m.0/cv1/conv/Conv_output_0`) 출력으로부터 abs histogram을 누적하고 KL-sweep을 수행하여 `KL(T)` 곡선을 계산한다.
