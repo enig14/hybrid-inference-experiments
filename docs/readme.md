@@ -102,3 +102,8 @@ Android 플랫폼 및 벤더의 공식 문서를 확인하였습니다.
 
 - Qualcomm QNN AI Runtime Workflow
   https://docs.qualcomm.com/doc/80-62010-1KO/topic/qnn-workflow.html
+
+## Third-party / Attribution
+- This project uses **Ultralytics YOLOv11m** for model export and inference experiments.
+- **Ultralytics source code is not included** in this repository.
+- **Pretrained weights are not redistributed**; users should obtain them from official Ultralytics sources.
