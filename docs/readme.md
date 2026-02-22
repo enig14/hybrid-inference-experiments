@@ -5,7 +5,7 @@
 > **Target HW (as of YYYY-MM-DD): Jetson Orin NX 16GB**
 > 초기 계획은 Orin Nano였으나, **Orin Nano에는 DLA가 없어** 본 프로젝트의 핵심인 **DLA(INT8)+GPU(FP16) 하이브리드 분할 실행**을 위해 Orin NX로 전환했습니다.
 > ## Docs
-- [상세 보고서](./docs/YOLOv11m_Hybrid_Inference_on_Jetson_Orin_NX)
+- [상세 보고서](./YOLOv11m_Hybrid_Inference_on_Jetson_Orin_NX.md)
 > ⚠️ 본 문서는 모바일 환경에서의 하이브리드 추론 실험을 정리한 기록으로, Orin Nano 기반 실험 이전 단계의 관찰과 제약 사항을 정리한 문서입니다.
 
 ---
