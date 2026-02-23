@@ -407,10 +407,10 @@ H2D(s) -> DLA(s) -> [event] -> GPU(s) -> D2H(s)
 **Acceptance Threshold (Pass Line)**
 기준: `m`–`s` 간 gap의 50% 이상 보존
 
-[
-\text{PassLine} = \frac{mAP(m_{FP16}) + mAP(s_{FP16})}{2}
+$
+\text{허용기준} = \frac{mAP(m_{FP16}) + mAP(s_{FP16})}{2}
 = \frac{49.52 + 44.92}{2} = 47.22
-]
+$
 
 **Hybrid (padding 정책 비교, 1K calibration) Results**
 
@@ -419,7 +419,7 @@ H2D(s) -> DLA(s) -> [event] -> GPU(s) -> D2H(s)
 * const (seed 42/84/126): **42.70 / 42.45 / 43.23**
 
 **[판정: Pass]**
-mean/random의 최저 mAP(**48.12 / 48.10**)도 PassLine(47.22)을 **+0.90 / +0.88p** 상회했다. 이는 **1K calibration** 조건에서도 **mean/random padding** 설계를 통해 PTQ 기반 Hybrid 모델이 `m` 모델 체급을 안정적으로 유지할 수 있음을 보여준다.
+mean/random의 최저 mAP(**48.12 / 48.10**)도 허용기준(47.22)을 **+0.90 / +0.88p** 상회했다. 이는 **1K calibration** 조건에서도 **mean/random padding** 설계를 통해 PTQ 기반 Hybrid 모델이 `m` 모델 체급을 안정적으로 유지할 수 있음을 보여준다.
 
 <br>
 
