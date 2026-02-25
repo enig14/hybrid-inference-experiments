@@ -1,109 +1,69 @@
+## YOLOv11m Graph-Partitioned Hybrid Inference on Jetson Orin NX
 
+**(DLA INT8 PTQ + GPU FP16, Two-Engine Pipeline)**
 
-# hybrid-inference-experiments
-# 하이브리드 추론 실험 정리 (현재 단계)
-> **Target HW (as of YYYY-MM-DD): Jetson Orin NX 16GB**
-> 초기 계획은 Orin Nano였으나, **Orin Nano에는 DLA가 없어** 본 프로젝트의 핵심인 **DLA(INT8)+GPU(FP16) 하이브리드 분할 실행**을 위해 Orin NX로 전환했습니다.
-> ## Docs
-- [상세 보고서](./YOLOv11m_Hybrid_Inference_on_Jetson_Orin_NX.md)
-> ⚠️ 본 문서는 모바일 환경에서의 하이브리드 추론 실험을 정리한 기록으로, Orin Nano 기반 실험 이전 단계의 관찰과 제약 사항을 정리한 문서입니다.
+YOLOv11m을 대상으로 Jetson Orin NX 16GB에서 **그래프 분할 기반 DLA(INT8)/GPU(FP16) 하이브리드 추론(2엔진 파이프라인)** 을 구현했습니다. 하이브리드 INT8에서 발생한 **mAP 붕괴(PTQ의 경우)** 를 샘플링/재학습(QAT) 대신 **calibration-only padding 분포 변화**로 복구했습니다. 또한 throughput/latency 모드에서 **FPS·지연(p50/p95/p99)·전력·열·프레임당 에너지(J/frame)** 를 실측 비교할 수 있도록 벤치마크 파이프라인을 구축했습니다. 
 
----
+### 대표 결과 (Top Metrics)
 
-# 1. 프로젝트 진행 배경
+* **최대 처리량(throughput):** 60.02 → **91.76 FPS (+52.9%)** 
+* **프레임당 에너지(Idle-subtracted):** 0.2095 → **0.1394 J/frame (-33.4%)** 
+* **정확도(Track A, mAP50-95):** const PTQ **42.45~43.23 →** mean/random PTQ **48.10~48.71** (FP16 49.52 대비 -0.8~-1.4p 수준)
 
-최근 모바일 기기에는 CPU, GPU, NPU 등 여러 가속기가 탑재되어 있으며, 이를 활용한 추론 실행이 가능해졌습니다. 본 프로젝트는 특정 모바일 기기에서 추론 실험을 진행하는 과정에서 시작되었습니다.
+[Full technical report](./YOLOv11m_Hybrid_Inference_on_Jetson_Orin_NX.md)
+<br>
 
-초기에는 개별 가속기의 동작 여부와 추론 실행 가능 여부를 확인하는 데 초점을 두었습니다. 그러나 실험을 진행하면서 가속기 선택과 실행 방식이 전체 실행 구조에 직접적인 영향을 미친다는 점을 인지하게 되었습니다.
+## Problem
 
-<br/><br/>
+* 엣지 환경에서는 **전력·열 예산** 때문에 GPU-only로 모든 추론을 처리하면 운영점이 제한됨
+* Orin NX의 DLA는 **CNN 연산에 효율적**이나 attention/transformer 계열 연산은 지원하지 않음 
+* 최근 CV 모델은 CNN backbone 외에 attention/transformer 등 **비-CNN 연산**을 포함하는 경우가 많음
+* 따라서 모델 전체를 DLA로 옮기기 어렵고, GPU-only는 **에너지 효율 및 지속 성능(thermal)** 측면에서 불리함
 
-# 2. 사전 실험 및 문제 인식
+## Approach
 
-S21+ 및 S25 Ultra 환경에서 추론 실험을 진행한 결과, use_gpu=true 인자를 준 실행에서는 모델 그래프 전체가 GPU로 위임되어 실행되었으며 반복 실행 과정에서도 안정적인 추론이 가능했습니다.[A] 
+* **CNN-heavy 구간은 DLA로 offload**, 비-CNN 구간은 GPU에 남기는 방식으로 **파이프라인 KPI 개선**을 목표로 함 
+<br>
 
-반면 공식적으로 제공되는 `nnapi=true` 인자를 통해 NPU 사용을 시도한 경우에는, 모델 내부에 포함된 NPU 미지원 연산 또는 벤더 드라이버(예: eden-drv)의 모델 인식 제약으로 인해 대부분의 연산이 CPU로 fallback되었습니다. 또한 일반 사용자 권한에서 가속기 할당 방식을 명시적으로 지정할 수 있는 방법은 확인할 수 없었습니다.[B][C]
+## Project Info
+* **형태:** 개인 프로젝트 (업무 외 시간에 self-directed로 진행)
+* **기간:** 2026.01 ~ 2026.02 (6주)
+* **역할:** end-to-end
 
-<br/><br/>
+## Tech Stack
 
-# 3. 문제 재정의
+* **HW/Platform:** NVIDIA Jetson Orin NX 16GB, DLA, GPU
+* **Runtime/Compiler:** TensorRT (INT8 PTQ / FP16), ONNX
+* **Languages:** C++, Python, CUDA
+* **Profiling/Logging:** CUDA Events, tegrastats(전력/열), (선택) jtop(util)
+* **Data/Analysis:** NumPy, Pandas, CSV/JSONL 기반 실험 로그/결과 관리
+* **Build/Tools:** CLI 기반 엔진 빌드/벤치 실행 스크립트, Git
+<br>
 
-본 프로젝트의 목적은 NPU와 GPU를 동시에 사용하는 구조를 구현하는 데 그치지 않습니다. 특정 환경에서 하이브리드 추론을 시도하는 과정에서 발생하는 제약을 정리하고, 이러한 제약이 성능에 어떤 영향을 미치는지를 중심으로 살펴보는 데 초점을 둡니다.
+## Contributions
 
-즉 하이브리드 분할 추론이 이론적으로 가능한 구조인지 여부가 아니라, 실제 환경에서 실험 자체가 성립 가능한지를 먼저 확인하는 것을 본 단계의 문제로 정의합니다.
+### 1) Split boundary 결정 (단일 경계 유지)
 
-<br/><br/>
+* **경계 선택:** CNN 계열을 최대한 포함하도록 **P3/P4/P5 각 경로에서 C3k2 이후를 단일 경계로 고정** 
+* **선정 이유:** 이후 등장하는 **C2PSA는 DLA 미지원(MatMul 계열)** 이라 더 깊게 offload하려면 다중 경계(DLA→GPU→DLA)가 필요해지고, 파이프라인 복잡도 및 재양자화/수치 안정성 리스크가 커 **단일 경계(2엔진 파이프라인)** 로 범위를 통제
 
-# 4. 설계 범위 및 향후 계획
-하이브리드 추론 실험이 상용 안드로이드 기기에서 어려운 이유에 대한 분석을 하였습니다. 성능 향상 여부에 대한 판단은 가속기 지정과 실행 방식을 명확히 제어할 수 있는 Jetson Orin Nano 플랫폼을 활용하여 이후 진행할 예정입니다. 주제를 확장하고 실험 조건을 명확히 설정하여 하이브리드 추론 성능을 점검할 예정입니다.
+[Technical note (System Overview: Hybrid Split Execution)](https://github.com/enig14/hybrid-inference-experiments/blob/main/docs/YOLOv11m_Hybrid_Inference_on_Jetson_Orin_NX.md#2-system-overview-hybrid-split-execution)
 
-<br/><br/>
+### 2) PTQ mAP 붕괴 복구 (calibration-only padding)
 
-# 5. 플랫폼 전환 및 향후 계획
+* **현상:** const padding 기반 1K calibration PTQ에서 mAP50-95가 **42.45~43.23** 수준으로 붕괴 
+* **원인 파악:** 샘플링 자체보다 **letterbox padding이 유발하는 histogram spike/comb**가 PTQ 안정성을 훼손할 수 있음을 분리 관측 
+* **해결:** 운영 전처리는 유지하고 **calibration-only로 mean/random padding**을 적용해 mAP를 **48.10~48.71** 수준으로 안정화(패딩 분포 설계로 복구)
+  
+[Technical note (PTQ root-cause)](https://github.com/enig14/hybrid-inference-experiments/blob/main/docs/YOLOv11m_Hybrid_Inference_on_Jetson_Orin_NX.md#52-padding-%EB%B6%84%ED%8F%AC%EA%B0%80-%EC%9C%A0%EB%8F%84%ED%95%9C-calibration-cachestep-%EB%B3%80%ED%99%94-%EC%B6%94%EC%A0%81)
 
-하이브리드 추론 실험이 상용 안드로이드 기기에서 어려운 이유에 대한 분석을 하였습니다. 성능 향상 여부에 대한 판단은 가속기 지정과 실행 방식을 명확히 제어할 수 있는 Jetson Orin Nano 플랫폼을 활용하여 이후 진행할 예정입니다. 주제를 확장하고 실험 조건을 명확히 설정하여 하이브리드 추론 성능을 점검할 예정입니다.
+### 3) 2엔진 파이프라인 구현 (DLA↔GPU)
 
-<br/><br/>
+* **동기화/연결:** `cudaEventRecord` + `cudaStreamWaitEvent`로 DLA 완료 이후 GPU 실행을 연결(필요 구간만 동기화) 
+* **파이프라이닝:** **ring-buffer(NBUF=3)** 로 H2D/DLA/GPU/D2H를 슬롯 단위 오버랩하여 throughput 모드 구성 
+* **운영 모드:** latency / throughput 모드 분리 운용(측정 목적에 맞게 스케줄링)
 
-## 부록 A. GPU 실행 로그 요약 (S21+)
+### 4) 벤치마크/계측 파이프라인 구축
 
-- 실행 도구: TensorFlow Lite `benchmark_model`
-- 모델: `yolo11n_float16.tflite`
-- Delegate: `TfLiteGpuDelegateV2`
-- Graph delegation: 전체 노드 GPU 위임 (546 / 546)
-- CPU fallback: 발생하지 않음
-- 평균 추론 시간: 약 **28.5 ms** (100 runs 기준)
-
-<br/>
-
-## 참고 로그 스니펫
-
-```text
-VERBOSE: Replacing 546 out of 546 node(s) with delegate (TfLiteGpuDelegateV2)
-INFO: Explicitly applied GPU delegate, and the model graph will be completely executed by the delegate.
-```
-
-<br/><br/>
-
-## 부록 B. NNAPI(`nnapi=true`) 인자를 사용하여 NPU 기반 추론을 시도한 결과에 대한 근거 1
-
-- `nnapi=true` 옵션을 사용한 실행에서는, 사용 가능한 NNAPI 가속기 목록에 `nnapi-reference`(CPU 구현)만이 노출되고 하드웨어 가속기(NPU)에 대한 명시적 위임은 확인할 수 없었습니다.
-
-- 실행 로그 상에서, 모델에 포함된 일부 연산이 NNAPI/NPU에서 지원되지 않거나, 벤더 드라이버(eden-drv)가 모델을 정상적으로 인식하지 못하는 경우가 관찰되었고, 그 결과 대부분의 연산이 CPU로 fallback되었습니다.
-
-<br/>
-
-## 부록 C. NNAPI(`nnapi=true`) 인자를 사용하여 NPU 기반 추론을 시도한 결과에 대한 근거 2
-Android 플랫폼 및 벤더의 공식 문서를 확인하였습니다.
-
-- Android 공식 NNAPI 문서에 따르면, "하드웨어 가속기 사용은 기기 제조사(OEM)가 제공하는 전문 공급업체(vendor) 드라이버에 의존하며, 해당 드라이버가 존재하지 않거나 노출되지 않은 경우 NNAPI 런타임은 CPU에서 요청을 실행한다" 라고 서술되어 있습니다.
-  (Android Neural Networks API 문서 참고)
-
-- 또한 NNAPI는 Android 15부터 deprecated(지원 중단 예정) 상태로 명시되어 있으며, 이는 앞으로도 하드웨어 가속기 제어 권한이 제공되지 않을 것임을 뜻합니다.
-  (NNAPI Migration Guide 참고)
-
-- TensorFlow Lite 공식 NNAPI delegate 문서에서는, NNAPI delegate 사용 시 지원되지 않는 연산이 CPU로 fallback될 수 있음을 설명하고 있으나, 이를 회피하기 위한 방법으로 연산 단위 또는 레이어 단위로 하드웨어 가속기를 사용자가 지정할 수 있는 방법은 제공하지 않습니다.
-
-- Qualcomm QNN(AI Runtime) 공식 문서에서는, Snapdragon 플랫폼의 AI Engine 하드웨어에서 추론을 수행하기 위해서는 사전 학습된 모델을 QNN AI Runtime에서 사용 가능한 형식으로 변환(convert)해야 한다고 명시하고 있습니다.
-
-위 문서들 내용을 종합할 때 일반 사용자 권한으로 애플리케이션이 Android 표준 API(NNAPI)를 통해 NPU를 직접 제어하거나, 가속기 할당 방식을 명시적으로 지정하는 공식적인 경로는 확인할 수 없었고, 앞으로의 지원 계획을 명확히 밝히고 있지 않습니다.
-
-<br/>
-
-### 참고 문서
-- Android Neural Networks API (NNAPI)
-  https://developer.android.com/ndk/guides/neuralnetworks?hl=ko
-
-- NNAPI Migration Guide
-  https://developer.android.com/ndk/guides/neuralnetworks/migration-guide?hl=ko
-
-- TensorFlow Lite NNAPI Delegate
-  https://www.tensorflow.org/lite/android/delegates/nnapi?hl=ko
-
-- Qualcomm QNN AI Runtime Workflow
-  https://docs.qualcomm.com/doc/80-62010-1KO/topic/qnn-workflow.html
-
-## Third-party / Attribution
-- This project uses **Ultralytics YOLOv11m** for model export and inference experiments.
-- **Ultralytics source code is not included** in this repository.
-- **Pretrained weights are not redistributed**; users should obtain them from official Ultralytics sources.
+* **FPS/Latency:** CUDA events 기반 stage/프레임 실행 시간 계측 → FPS 및 **p50/p95/p99 latency**를 모드별로 비교 
+* **Energy:** tegrastats 전력 로그를 프레임 타임윈도우에 정렬 → $P_{excess} = P_{avg} - P_{idle}, E_{frame} = P_{excess} / FPS$로 대기전력 제외 J/frame 산출 → **GPU-only vs DLA+GPU** 비교 
