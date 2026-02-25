@@ -45,7 +45,7 @@ YOLOv11m을 대상으로 Jetson Orin NX 16GB에서 **그래프 분할 기반 DLA
 ### 1) Split boundary 결정 (단일 경계 유지)
 
 * **경계 선택:** CNN 계열을 최대한 포함하도록 **P3/P4/P5 각 경로에서 C3k2 이후를 단일 경계로 고정** 
-* **선정 이유:** 이후 등장하는 **C2PSA는 DLA 미지원(MatMul 계열)**이라 더 깊게 offload하려면 다중 경계(DLA→GPU→DLA)가 필요해지고, 파이프라인 복잡도 및 재양자화/수치 안정성 리스크가 커 **단일 경계(2엔진 파이프라인)**로 범위를 통제
+* **선정 이유:** 이후 등장하는 **C2PSA는 DLA 미지원(MatMul 계열)** 이라 더 깊게 offload하려면 다중 경계(DLA→GPU→DLA)가 필요해지고, 파이프라인 복잡도 및 재양자화/수치 안정성 리스크가 커 **단일 경계(2엔진 파이프라인)** 로 범위를 통제
 
 [Technical note (System Overview: Hybrid Split Execution)](https://github.com/enig14/hybrid-inference-experiments/blob/main/docs/YOLOv11m_Hybrid_Inference_on_Jetson_Orin_NX.md#2-system-overview-hybrid-split-execution)
 
