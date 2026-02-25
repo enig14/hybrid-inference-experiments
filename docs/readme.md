@@ -35,7 +35,7 @@ YOLOv11m을 대상으로 Jetson Orin NX 16GB에서 **그래프 분할 기반 DLA
 * **HW/Platform:** NVIDIA Jetson Orin NX 16GB, DLA, GPU
 * **Runtime/Compiler:** TensorRT (INT8 PTQ / FP16), ONNX
 * **Languages:** C++, Python, CUDA
-* **Profiling/Logging:** CUDA Events, tegrastats(전력/열), (선택) jtop(util)
+* **Profiling/Logging:** CUDA Events, tegrastats(전력/열), jtop(util)
 * **Data/Analysis:** NumPy, Pandas, CSV/JSONL 기반 실험 로그/결과 관리
 * **Build/Tools:** CLI 기반 엔진 빌드/벤치 실행 스크립트, Git
 <br>
