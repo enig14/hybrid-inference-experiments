@@ -48,6 +48,6 @@
 
 ## 🔗 연관 문서
 
-* **Background (프로젝트 배경/문제 정의):** `docs/background.md`
-* **Full report (근거·프로토콜·분석 전문):** `docs/Hybrid_Inference_on_Jetson_Orin_NX.md`
+* **Background (프로젝트 배경/문제 정의):** [`docs/background.md`](./docs/background.md)
+* **Full report (근거·프로토콜·분석 전문):** [`docs/Hybrid_Inference_on_Jetson_Orin_NX.md`](./docs/Hybrid_Inference_on_Jetson_Orin_NX.md)
 
